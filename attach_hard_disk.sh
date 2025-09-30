@@ -36,3 +36,5 @@ fi
 
 # Test fstab entry
 sudo mount -a
+
+ln -s $MOUNTPOINT ~/disk
