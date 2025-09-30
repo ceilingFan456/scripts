@@ -23,3 +23,12 @@ export PATH="$INSTALL_DIR/bin:$PATH"
 
 # Verify install
 conda --version
+
+# 1) Load Conda’s shell hook now (enables `conda create/activate` in THIS shell)
+eval "$($HOME/disk/miniconda3/bin/conda shell.bash hook)"
+
+# 2) Make it permanent for future shells
+$HOME/disk/miniconda3/bin/conda init bash
+
+source ~/.bashrc
+
