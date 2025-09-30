@@ -1,0 +1,8 @@
+Region: Central US
+Availability zone: Zone 2
+Security type: Standard
+VM architecture: x64
+
+Size: Standard_NC96ads_A100_v4 - 96 vcpus, 880 GiB memory ($12,119.46/month)
+
+advanced: select nvidia extension
