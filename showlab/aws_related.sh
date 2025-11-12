@@ -58,6 +58,8 @@ aws configure list --profile <profile_name>
 # egoexo -o <out-dir> --s3_profile exo4d
 egoexo -o /storage/qiming/datasets/ego-exo4d_data --s3_profile exo4d --parts all
 
+## default and test currently works.
+
 
 ## update aws region 
 aws configure set region eu-central-1 --profile exo4d
