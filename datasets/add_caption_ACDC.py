@@ -135,6 +135,9 @@ def generate_questions_for_masks(mask_root: str):
     """
     llm = azure_openai_llm()
 
+    caption_root = mask_root.replace("mask", "caption")
+    os.makedirs(caption_root, exist_ok=True)
+
     mask_pattern = os.path.join(mask_root, "*.png")
     mask_paths = sorted(glob.glob(mask_pattern))
 
