@@ -178,6 +178,7 @@ def generate_questions_for_masks(mask_root: str):
 if __name__ == "__main__":
     # Hardcode your ACDC mask folder here.
     # You can also turn this into argparse if you want more flexibility.
-    MASK_ROOT = "/home/t-qimhuang/disk/datasets/ACDC/train_mask"
+    # MASK_ROOT = "/home/t-qimhuang/disk/datasets/ACDC/train_mask"
+    MASK_ROOT = "/home/t-qimhuang/disk/datasets/ACDC/test_mask"
 
     generate_questions_for_masks(MASK_ROOT)
