@@ -9,16 +9,16 @@ import webdataset as wds
 
 
 # -------- CONFIG --------
-IMAGE_ROOT = "/home/t-qimhuang/disk/datasets/ACDC/test"
-MASK_ROOT = "/home/t-qimhuang/disk/datasets/ACDC/test_mask"
+IMAGE_ROOT = "/home/t-qimhuang/disk/datasets/ACDC/train"
+MASK_ROOT = "/home/t-qimhuang/disk/datasets/ACDC/train_mask"
 
 # where to save the webdataset shards
-OUTPUT_DIR = "/home/t-qimhuang/disk/datasets/ACDC/wds_test_full"
+OUTPUT_DIR = "/home/t-qimhuang/disk/datasets/ACDC/wds_10"
 OUTPUT_PATTERN = os.path.join(OUTPUT_DIR, "acdc_seg-%06d.tar")
 
 # where to save visual inspection copies
-SAMPLES_DIR = "/home/t-qimhuang/disk/datasets/ACDC/wds_test_full_samples"
-MAX_SAMPLES = 100000  # number of samples you want in this dataset
+SAMPLES_DIR = "/home/t-qimhuang/disk/datasets/ACDC/wds_10_samples"
+MAX_SAMPLES = 10  # number of samples you want in this dataset
 
 
 def ensure_dir(path):
