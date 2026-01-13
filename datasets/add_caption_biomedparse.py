@@ -1,223 +1,116 @@
-#!/usr/bin/env python3
 import os
 import glob
 import asyncio
+import time
 from typing import List
-
-from tenacity import (
-    retry,
-    wait_fixed,
-    wait_exponential,
-    stop_after_attempt,
-    retry_if_exception_type,
-)
-from openai import (
-    AzureOpenAI,
-    AsyncAzureOpenAI,
-    RateLimitError,
-    APITimeoutError,
-    APIConnectionError,
-    InternalServerError,
-)
 from tqdm import tqdm
+from openai import AsyncAzureOpenAI, RateLimitError, APITimeoutError, APIConnectionError, InternalServerError
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
+# ---------- Configuration ----------
 
-# ---------- Azure OpenAI wrapper (MINIMALLY CHANGED) ----------
+AZURE_ENDPOINT = "https://medevalkit.openai.azure.com/"
+DEPLOYMENT_NAME = "gpt-5-mini"
+API_VERSION = "2024-12-01-preview"
+DATASET_ROOT = "/home/t-qimhuang/disk/datasets/BiomedParseData"
+CONCURRENCY = int(os.environ.get("LLM_CONCURRENCY", "128"))
 
-def before_retry_fn(retry_state):
-    # keep your log style
-    print(f"[Retry] Attempt {retry_state.attempt_number} failed with: {retry_state.outcome}")
+# ---------- Logic Functions ----------
 
-
-class azure_openai_llm:
-    def __init__(self, model: str = None):
-        endpoint = "https://medevalkit.openai.azure.com/"
-        self.deployment = "gpt-5-mini"
-
-        subscription_key = os.environ["AZURE_API_KEY"]
-        api_version = "2024-12-01-preview"
-
-        # small practical timeout; reusing same client is good
-        self.client = AzureOpenAI(
-            api_version=api_version,
-            azure_endpoint=endpoint,
-            api_key=subscription_key,
-            timeout=60.0,
-        )
-
-        # kept for compatibility AND now used by async path
-        self.async_client = AsyncAzureOpenAI(
-            api_version=api_version,
-            azure_endpoint=endpoint,
-            api_key=subscription_key,
-            timeout=60.0,
-        )
-
-    # (your sync path preserved)
-    @retry(wait=wait_fixed(10), stop=stop_after_attempt(1000), before=before_retry_fn)
-    def response(self, messages, **kwargs) -> str:
-        response = self.client.chat.completions.create(
-            messages=messages,
-            max_completion_tokens=128,  # reduced (questions are short)
-            model=self.deployment,
-        )
-        return response.choices[0].message.content
-
-    def generate_output(self, messages, **kwargs) -> str:
-        try:
-            return self.response(messages, **kwargs)
-        except Exception as e:
-            print(f"LLM failed: {e}")
-            return None
-
-    # (new) async path for parallelization
-    @retry(
-        wait=wait_exponential(min=1, max=30),
-        stop=stop_after_attempt(20),
-        before=before_retry_fn,
-        retry=retry_if_exception_type(
-            (RateLimitError, APITimeoutError, APIConnectionError, InternalServerError)
-        ),
-    )
-    async def aresponse(self, messages, **kwargs) -> str:
-        response = await self.async_client.chat.completions.create(
-            messages=messages,
-            max_completion_tokens=128,  # reduced
-            model=self.deployment,
-        )
-        return response.choices[0].message.content
-
-    async def agenerate_output(self, messages, **kwargs) -> str:
-        try:
-            return await self.aresponse(messages, **kwargs)
-        except Exception as e:
-            print(f"LLM failed: {e}")
-            return None
-
-
-# ---------- Core logic (UNCHANGED) ----------
-
-def extract_organ_phrase_from_filename(mask_filename: str) -> str:
-    basename = os.path.basename(mask_filename)
-    stem, _ = os.path.splitext(basename)
-    try:
-        _, organ_part = stem.rsplit("_", 1)
-    except ValueError:
-        organ_part = stem
+def extract_organ_phrase(mask_filename: str) -> str:
+    """Extracts organ name from filename, e.g., 'slice_001_heart.png' -> 'heart'"""
+    stem = os.path.splitext(os.path.basename(mask_filename))[0]
+    organ_part = stem.rsplit("_", 1)[-1] if "_" in stem else stem
     return organ_part.replace("+", " ")
 
-
-def build_messages_for_segmentation_question(organ_phrase: str) -> List[dict]:
-    system_msg = (
-        "You are a helpful assistant generating segmentation questions for a medical "
-        "image segmentation task."
-    )
-
-    user_msg = (
-        "Given a single cardiac MRI slice, write ONE short and clear and unambiguous question asking "
-        f"the model to segment the '{organ_phrase}'.\n\n"
-        "Requirements:\n"
-        "- Only output the question text.\n"
-        "- Do not include any explanation or extra sentences."
-    )
-
-    return [
-        {"role": "system", "content": system_msg},
-        {"role": "user", "content": user_msg},
-    ]
-
-
-def mask_to_caption_txt_path(mask_path: str) -> str:
+def mask_to_caption_path(mask_path: str) -> str:
+    """Converts .../train_mask/x.png to .../train_caption/x.txt"""
     txt_path = os.path.splitext(mask_path)[0] + ".txt"
-    parts = txt_path.split(os.sep)
-    for i, p in enumerate(parts):
-        if p.endswith("_mask"):
-            parts[i] = p.replace("_mask", "_caption")
-            break
-    return os.sep.join(parts)
+    return txt_path.replace("_mask", "_caption")
 
+# ---------- Async Azure Client with Retries ----------
 
-# ---------- Parallel mask processing (NEW, bounded concurrency) ----------
+class AsyncLLM:
+    def __init__(self):
+        self.client = AsyncAzureOpenAI(
+            api_key=os.environ["AZURE_API_KEY"],
+            azure_endpoint=AZURE_ENDPOINT,
+            api_version=API_VERSION,
+            timeout=30.0
+        )
 
-async def generate_questions_for_masks_parallel(mask_root: str, llm: azure_openai_llm, concurrency: int = 16):
-    mask_paths = sorted(glob.glob(os.path.join(mask_root, "*.png")))
+    @retry(
+        wait=wait_exponential(min=1, max=10),
+        stop=stop_after_attempt(5),
+        retry=retry_if_exception_type((RateLimitError, APITimeoutError, APIConnectionError, InternalServerError)),
+    )
+    async def get_caption(self, organ_phrase: str) -> str:
+        response = await self.client.chat.completions.create(
+            model=DEPLOYMENT_NAME,
+            messages=[
+                {"role": "system", "content": "Be concise. Output ONLY the question."},
+                {"role": "user", "content": f"Write one short question to segment the '{organ_phrase}' in this MRI slice."}
+            ],
+        )
+        return response.choices[0].message.content.strip()
+
+    async def close(self):
+        await self.client.close()
+
+# ---------- Processing Pipeline ----------
+
+async def process_mask(mask_path: str, llm: AsyncLLM, semaphore: asyncio.Semaphore):
+    out_txt = mask_to_caption_path(mask_path)
+    if os.path.exists(out_txt):
+        return
+
+    organ_phrase = extract_organ_phrase(mask_path)
+    
+    async with semaphore:
+        try:
+            caption = await llm.get_caption(organ_phrase)
+            if caption:
+                os.makedirs(os.path.dirname(out_txt), exist_ok=True)
+                with open(out_txt, "w", encoding="utf-8") as f:
+                    f.write(caption + "\n")
+        except Exception as e:
+            print(f"\nFailed {mask_path}: {e}")
+
+async def process_folder(mask_dir: str, llm: AsyncLLM, sem: asyncio.Semaphore):
+    mask_paths = sorted(glob.glob(os.path.join(mask_dir, "*.png")))
     if not mask_paths:
         return
 
-    print(f"Found {len(mask_paths)} masks in {mask_root}")
+    tasks = [process_mask(p, llm, sem) for p in mask_paths]
+    
+    # tqdm progress bar for the current folder
+    for f in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc=f"Processing {os.path.basename(mask_dir)}", leave=False):
+        await f
 
-    sem = asyncio.Semaphore(concurrency)
+async def main():
+    if "AZURE_API_KEY" not in os.environ:
+        print("Error: Set AZURE_API_KEY env var.")
+        return
 
-    async def worker(mask_path: str):
-        out_txt = mask_to_caption_txt_path(mask_path)
+    llm = AsyncLLM()
+    sem = asyncio.Semaphore(CONCURRENCY)
 
-        if os.path.exists(out_txt):
-            return
+    # 1. Find all target directories
+    target_dirs = []
+    for root, dirs, files in os.walk(DATASET_ROOT):
+        for d in dirs:
+            if d in ["train_mask", "test_mask"]:
+                target_dirs.append(os.path.join(root, d))
 
-        organ_phrase = extract_organ_phrase_from_filename(mask_path)
-        messages = build_messages_for_segmentation_question(organ_phrase)
+    print(f"Found {len(target_dirs)} mask folders to process.")
 
-        async with sem:
-            question = await llm.agenerate_output(messages)
+    # 2. Process folders one by one, but images inside folder in parallel
+    for mask_dir in target_dirs:
+        print(f"\nTarget: {mask_dir}")
+        await process_folder(mask_dir, llm, sem)
 
-        if question is None:
-            return
-
-        os.makedirs(os.path.dirname(out_txt), exist_ok=True)
-        with open(out_txt, "w", encoding="utf-8") as f:
-            f.write(question.strip() + "\n")
-
-    tasks = [asyncio.create_task(worker(p)) for p in mask_paths]
-
-    # progress bar that advances as tasks complete (not in submission order)
-    for fut in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc=os.path.basename(mask_root)):
-        await fut
-
-
-# ---------- Dataset-level driver (SEQUENTIAL across datasets/dirs) ----------
-
-def find_mask_dirs(dataset_dir: str):
-    res = []
-    for split in ["train_mask", "test_mask"]:
-        p = os.path.join(dataset_dir, split)
-        if os.path.isdir(p):
-            res.append(p)
-
-    # handle duplicated nesting: ACDC/ACDC/train_mask
-    base = os.path.basename(os.path.normpath(dataset_dir))
-    nested = os.path.join(dataset_dir, base)
-    if os.path.isdir(nested):
-        for split in ["train_mask", "test_mask"]:
-            p = os.path.join(nested, split)
-            if os.path.isdir(p):
-                res.append(p)
-
-    return res
-
-
-def run_all_datasets(dataset_root: str, concurrency: int = 16):
-    llm = azure_openai_llm()
-
-    dataset_dirs = sorted(
-        os.path.join(dataset_root, d)
-        for d in os.listdir(dataset_root)
-        if os.path.isdir(os.path.join(dataset_root, d))
-    )
-
-    for ds in dataset_dirs:
-        mask_dirs = find_mask_dirs(ds)
-        if not mask_dirs:
-            continue
-
-        print(f"\n=== Dataset: {os.path.basename(ds)} ===")
-        for mask_root in mask_dirs:
-            # parallel within each mask_root, but keep dataset traversal sequential
-            asyncio.run(generate_questions_for_masks_parallel(mask_root, llm, concurrency=concurrency))
-
-
-# ---------- Entrypoint ----------
+    await llm.close()
+    print("\nAll datasets complete.")
 
 if __name__ == "__main__":
-    DATASET_ROOT = "/home/t-qimhuang/disk/datasets/BiomedParseData"  # adjust if needed
-    CONCURRENCY = int(os.environ.get("LLM_CONCURRENCY", "32"))       # tune: 8/16/32
-    run_all_datasets(DATASET_ROOT, concurrency=CONCURRENCY)
+    asyncio.run(main())
