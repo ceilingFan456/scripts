@@ -96,13 +96,17 @@ def build_wds_for_one_split(
         return
 
     mask_paths = sorted(glob.glob(os.path.join(mask_root, "*.png")))
+
+    ## TODO remove for full dataset
+    # mask_paths = mask_paths[:100]  # limit to first 100 for testing
+    
     if len(mask_paths) == 0:
         print(f"[{dataset_name}] {split}: no masks found, skip.")
         return
 
     # Output dirs
-    output_dir = os.path.join(dataset_dir, f"wds_{split}")
-    samples_dir = os.path.join(dataset_dir, f"wds_{split}_samples")
+    output_dir = os.path.join(dataset_dir, f"wds_100_{split}")
+    samples_dir = os.path.join(dataset_dir, f"wds_100_{split}_samples")
 
     ensure_dir(output_dir)
     ensure_dir(samples_dir)
