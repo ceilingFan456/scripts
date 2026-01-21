@@ -9,16 +9,18 @@ import webdataset as wds
 
 
 # -------- CONFIG --------
-IMAGE_ROOT = "/home/t-qimhuang/disk/datasets/BiomedParseData/ACDC/train"
-MASK_ROOT = "/home/t-qimhuang/disk/datasets/BiomedParseData/ACDC/train_mask"
+# IMAGE_ROOT = "/home/t-qimhuang/disk/datasets/BiomedParseData/ACDC/train"
+# MASK_ROOT = "/home/t-qimhuang/disk/datasets/BiomedParseData/ACDC/train_mask"
+IMAGE_ROOT = "/home/t-qimhuang/disk/datasets/BiomedParseData/amos22/CT/train"
+MASK_ROOT = "/home/t-qimhuang/disk/datasets/BiomedParseData/amos22/CT/train_mask"
 
 # where to save the webdataset shards
-OUTPUT_DIR = "/home/t-qimhuang/disk/datasets/BiomedParseData/ACDC/wds_train_simple_caption"
-OUTPUT_PATTERN = os.path.join(OUTPUT_DIR, "acdc_seg-%06d.tar")
+OUTPUT_DIR = "/home/t-qimhuang/disk/datasets/BiomedParseData/amos22/CT/wds_train_simple_caption"
+OUTPUT_PATTERN = os.path.join(OUTPUT_DIR, "amos22_seg-%06d.tar")
 
 # where to save visual inspection copies
-SAMPLES_DIR = "/home/t-qimhuang/disk/datasets/BiomedParseData/ACDC/wds_train_simple_caption_samples"
-MAX_SAMPLES = 10000000  # number of samples you want in this dataset
+SAMPLES_DIR = "/home/t-qimhuang/disk/datasets/BiomedParseData/amos22/CT/wds_train_simple_caption_samples"
+MAX_SAMPLES = 300  # number of samples you want in this dataset
 
 
 def ensure_dir(path):
@@ -87,7 +89,7 @@ def build_webdataset():
         for mask_path in mask_paths:
             image_path = get_image_path_from_mask(mask_path)
             question_path = os.path.splitext(mask_path)[0] + ".txt"
-            question_path = question_path.replace("mask", "simple_caption")
+            question_path = question_path.replace("mask", "caption")
 
             print(f"Processing mask: {mask_path}")
             print(f"  image: {image_path}")

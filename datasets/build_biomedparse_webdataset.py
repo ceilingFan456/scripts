@@ -52,7 +52,7 @@ def mask_path_to_caption_txt(mask_path: str) -> str:
     parts = txt.split(os.sep)
     for i, p in enumerate(parts):
         if p.endswith("_mask"):
-            parts[i] = p.replace("_mask", "_caption")
+            parts[i] = p.replace("_mask", "_simple_caption")
             break
     return os.sep.join(parts)
 
@@ -105,8 +105,8 @@ def build_wds_for_one_split(
         return
 
     # Output dirs
-    output_dir = os.path.join(dataset_dir, f"wds_100_{split}")
-    samples_dir = os.path.join(dataset_dir, f"wds_100_{split}_samples")
+    output_dir = os.path.join(dataset_dir, f"wds_{split}_simple_caption")
+    samples_dir = os.path.join(dataset_dir, f"wds_{split}_simple_caption_samples")
 
     ensure_dir(output_dir)
     ensure_dir(samples_dir)
