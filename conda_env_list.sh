@@ -9,3 +9,5 @@ conda activate eval
 ## openpi is for pi 0.5
 conda activate openpi
 
+## biomedparse-main-eval can run biomedparse-v1 (2D version) and medevalkit together
+conda activate biomedparse-main-eval
