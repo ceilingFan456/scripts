@@ -3,7 +3,8 @@ import glob
 import asyncio
 import time
 import random
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
+from click import Option
 from tqdm import tqdm
 from openai import AsyncAzureOpenAI, RateLimitError, APITimeoutError, APIConnectionError, InternalServerError
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
@@ -22,7 +23,7 @@ FORCE_REGEN = os.environ.get("FORCE_REGEN", "0") == "1"  # set to 1 to overwrite
 
 # ---------- Helper Functions ----------
 
-def extract_metadata_from_filename(mask_path: str) -> Tuple[str, str, str, str | None]:
+def extract_metadata_from_filename(mask_path: str) -> Tuple[str, str, str, Optional[str]]:
     """
     Heuristic parser for filenames like:
       patient101_frame01_0_MRI_heart_left+heart+ventricle.png
@@ -85,19 +86,19 @@ def caption_needs_regen(caption_path: str) -> Tuple[bool, str]:
     return False, ""
 
 
-def build_messages_for_segmentation_question(mask_path: str) -> List[dict]:
+def build_messages_for_segmentation_question(mask_path: str, print_prompt: bool=False) -> List[dict]:
     target, modality, site, sequence = extract_metadata_from_filename(mask_path)
     mod_desc = f"{sequence if sequence else ''} {modality}".strip()
 
     patterns = [
         f"Write a question asking to identify the {target} in this {mod_desc} scan.",
         f"Write a command to delineate the {target} on this {site} {modality} slice.",
-        f"Ask the model to find the pixels corresponding to the {target}.",
+        # f"Ask the model to find the pixels corresponding to the {target}.",
         f"Ask where the {target} is located in this {mod_desc} image.",
         f"Formulate a question to identify the {target} pixels within this {site} scan.",
         f"Ask which part of this {mod_desc} corresponds to the {target}.",
         f"Request a mask for the {target} area on this {mod_desc}.",
-        f"Direct the model to isolate the {target} from the surrounding {site} tissue.",
+        # f"Direct the model to isolate the {target} from the surrounding {site} tissue.",
         f"Request a segmentation of the {target} within this {site} region.",
     ]
     selected_pattern = random.choice(patterns)
@@ -118,6 +119,9 @@ def build_messages_for_segmentation_question(mask_path: str) -> List[dict]:
         f"- Keep it concise (<= {MAX_CAPTION_WORDS} words).\n"
         f"- If needed, rewrite to be <= {MAX_CAPTION_WORDS} words.\n"
     )
+
+    if print_prompt:
+        print(f"user_msg:\n{user_msg}\n")
 
     return [
         {"role": "system", "content": system_msg},
@@ -143,10 +147,11 @@ class AsyncLLM:
             (RateLimitError, APITimeoutError, APIConnectionError, InternalServerError)
         ),
     )
-    async def get_caption(self, mask_path: str) -> str:
+    async def get_caption(self, mask_path: str, print_prompt: bool=False) -> str:
+        msg = build_messages_for_segmentation_question(mask_path, print_prompt)
         response = await self.client.chat.completions.create(
             model=DEPLOYMENT_NAME,
-            messages=build_messages_for_segmentation_question(mask_path),
+            messages=msg,
         )
         text = (response.choices[0].message.content or "").strip()
         return text
@@ -211,10 +216,10 @@ async def process_mask(mask_path: str, llm: AsyncLLM, semaphore: asyncio.Semapho
             attempts = 0
             while (not caption or count_words(caption) > MAX_CAPTION_WORDS) and attempts < 3:
                 if caption:
-                    print(f"[Info] Caption too long ({count_words(caption)} words), retrying... attempt: {attempts + 1}")
+                    print(f"[Info] Caption too long ({count_words(caption)} words), retrying... attempt: {attempts + 1} \n {caption}")
                 else:
                     print(f"[Info] Caption empty, retrying... attempt: {attempts + 1}")
-                caption = (await llm.get_caption(mask_path)).strip()
+                caption = (await llm.get_caption(mask_path, True)).strip()
                 attempts += 1
             
             # If still invalid after retries, use fallback caption
