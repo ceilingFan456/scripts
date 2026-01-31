@@ -6,6 +6,8 @@ conda activate biomedparse
 ## eval can run medevalkit and showo 
 conda activate eval
 
+## medsam can run medvalkit, showo and medsam
+
 ## openpi is for pi 0.5
 conda activate openpi
 

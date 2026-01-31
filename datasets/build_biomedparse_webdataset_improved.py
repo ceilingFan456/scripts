@@ -1,31 +1,32 @@
 #!/usr/bin/env python3
 """
-Build WebDataset shards for ONE dataset folder (e.g., DRIVE/).
+Recursively build WebDataset shards for BiomedParse-style datasets.
 
-Expected structure under --dataset_dir:
-  <split>/                (images)
-  <split>_mask/           (mask pngs)
-  <caption_dir>/          (caption txts; same stem as mask png)
+For each dataset folder under --root, we look for:
+  <dataset>/<split>/         (images)
+  <dataset>/<split>_mask/    (mask pngs)
+  <dataset>/<caption_dir>/  (caption txts; same stem as mask png)
 
-Example:
-  python build_wds_single.py \
-    --dataset_dir /path/to/DRIVE \
-    --split train \
-    --caption_dir train_simple_caption \
-    --out_dir wds_100_train
+Templates (important for --split both):
+  --caption_dir "{split}_simple_caption"  -> train_simple_caption / test_simple_caption
+  --out_dir     "wds_100_{split}"         -> wds_100_train / wds_100_test
 """
 
 import argparse
 import glob
-import hashlib
 import io
 import os
 import random
+from typing import Dict, List
+
 from PIL import Image
 import webdataset as wds
 from tqdm import tqdm
-import shutil
 
+
+# ----------------------------
+# Utilities
+# ----------------------------
 
 def ensure_dir(p: str) -> None:
     os.makedirs(p, exist_ok=True)
@@ -50,11 +51,6 @@ def concat_image_and_mask(image: Image.Image, mask: Image.Image) -> Image.Image:
     return out
 
 
-def stable_key(mask_path: str, image_path: str) -> str:
-    h = hashlib.sha1(f"{mask_path}|{image_path}".encode("utf-8")).hexdigest()[:16]
-    return f"sample-{h}"
-
-
 def infer_image_path_from_mask(mask_path: str, image_root: str, rule: str) -> str:
     """
     rule:
@@ -62,80 +58,100 @@ def infer_image_path_from_mask(mask_path: str, image_root: str, rule: str) -> st
       - exact:               abc_def_x.png -> abc_def_x.png
     """
     stem = os.path.splitext(os.path.basename(mask_path))[0]
-    if rule == "drop_last_underscore":
-        if "_" in stem:
-            stem = stem.rsplit("_", 1)[0]
+    if rule == "drop_last_underscore" and "_" in stem:
+        stem = stem.rsplit("_", 1)[0]
     return os.path.join(image_root, stem + ".png")
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--dataset_dir", required=True, help="Path to dataset folder, e.g. .../DRIVE")
-    ap.add_argument("--split", required=True, choices=["train", "test"])
-    ap.add_argument("--caption_dir", required=True, help="e.g. train_simple_caption or train_caption")
-    ap.add_argument("--out_dir", required=True, help="e.g. wds_100_train")
-    ap.add_argument("--maxcount_per_shard", type=int, default=8000)
-    ap.add_argument("--max_total_samples", type=int, default=-1, help="-1 = no limit")
-    ap.add_argument("--max_samples_to_save", type=int, default=10)
-    ap.add_argument("--random_sample_save", action="store_true")
-    ap.add_argument(
-        "--image_stem_rule",
-        choices=["drop_last_underscore", "exact"],
-        default="drop_last_underscore",
-        help="How to map mask filename -> image filename",
-    )
-    args = ap.parse_args()
+def apply_split_template(s: str, split: str) -> str:
+    # supports both "{split}" and "%s"
+    if "{split}" in s:
+        return s.replace("{split}", split)
+    if "%s" in s:
+        return s % split
+    return s
 
-    image_root = os.path.join(args.dataset_dir, args.split)
-    mask_root = os.path.join(args.dataset_dir, f"{args.split}_mask")
-    caption_root = os.path.join(args.dataset_dir, args.caption_dir)
 
-    if not os.path.isdir(image_root):
-        raise FileNotFoundError(f"Missing image folder: {image_root}")
-    if not os.path.isdir(mask_root):
-        raise FileNotFoundError(f"Missing mask folder: {mask_root}")
-    if not os.path.isdir(caption_root):
-        raise FileNotFoundError(f"Missing caption folder: {caption_root}")
+# ----------------------------
+# Recursive dataset discovery
+# ----------------------------
 
-    out_dir = os.path.join(args.dataset_dir, args.out_dir)
-    if os.path.exists(out_dir):
-        shutil.rmtree(out_dir)
+def is_candidate_dataset_dir(d: str, caption_dir: str, split: str) -> bool:
+    img_dir = os.path.join(d, split)
+    mask_dir = os.path.join(d, f"{split}_mask")
+    cap_dir = os.path.join(d, caption_dir)
+    return os.path.isdir(img_dir) and os.path.isdir(mask_dir) and os.path.isdir(cap_dir)
 
-    samples_dir = os.path.join(args.dataset_dir, args.out_dir + "_samples")
-    if os.path.exists(samples_dir):
-        shutil.rmtree(samples_dir)
+
+def discover_datasets(root: str, caption_dir: str, split: str) -> List[str]:
+    hits = []
+    for cur, dirs, _files in os.walk(root):
+        if is_candidate_dataset_dir(cur, caption_dir, split):
+            hits.append(cur)
+            dirs[:] = []  # prune
+    return sorted(hits)
+
+
+# ----------------------------
+# WDS writing per dataset
+# ----------------------------
+
+def build_one_dataset(
+    dataset_dir: str,
+    split: str,
+    caption_dir: str,
+    out_dirname: str,
+    *,
+    maxcount_per_shard: int,
+    max_total_samples: int,
+    max_samples_to_save: int,
+    random_sample_save: bool,
+    image_stem_rule: str,
+    skip_missing: bool,
+    key_width: int,
+) -> Dict[str, int]:
+    image_root = os.path.join(dataset_dir, split)
+    mask_root = os.path.join(dataset_dir, f"{split}_mask")
+    caption_root = os.path.join(dataset_dir, caption_dir)
+
+    out_dir = os.path.join(dataset_dir, out_dirname)
+    samples_dir = os.path.join(dataset_dir, out_dirname + "_samples")
     ensure_dir(out_dir)
     ensure_dir(samples_dir)
 
     mask_paths = sorted(glob.glob(os.path.join(mask_root, "*.png")))
     if not mask_paths:
-        print(f"No masks found in {mask_root}")
-        return
+        return {"wrote": 0, "skipped": 0, "failed": 0}
+
+    # cap upfront, preserving sorted order
+    if max_total_samples > 0:
+        mask_paths_iter = mask_paths[:max_total_samples]
+    else:
+        mask_paths_iter = mask_paths
 
     out_pattern = os.path.join(out_dir, "seg-%06d.tar")
 
-    print(f"[split={args.split}]")
-    print(f"  image_root : {image_root}")
-    print(f"  mask_root  : {mask_root}")
-    print(f"  caption_root: {caption_root}")
-    print(f"  out_dir    : {out_dir}")
-    print(f"  samples_dir: {samples_dir}")
+    wrote = skipped = failed = 0
+    pending = []  # for random sample saving
 
-    pending = []
-    written = skipped = failed = 0
+    with wds.ShardWriter(out_pattern, maxcount=maxcount_per_shard) as sink:
+        pbar = tqdm(
+            enumerate(mask_paths_iter),
+            total=len(mask_paths_iter),
+            desc=f"{os.path.basename(dataset_dir)}/{split}",
+            leave=False,
+        )
 
-    with wds.ShardWriter(out_pattern, maxcount=args.maxcount_per_shard) as sink:
-        for mask_path in tqdm(mask_paths, desc=f"Writing {os.path.basename(args.dataset_dir)}/{args.split}"):
-            if args.max_total_samples > 0 and written >= args.max_total_samples:
-                break
-
-            image_path = infer_image_path_from_mask(mask_path, image_root, args.image_stem_rule)
+        for idx, mask_path in pbar:
+            image_path = infer_image_path_from_mask(mask_path, image_root, image_stem_rule)
             stem = os.path.splitext(os.path.basename(mask_path))[0]
             caption_path = os.path.join(caption_root, stem + ".txt")
 
             if not os.path.exists(image_path) or not os.path.exists(caption_path):
-                skipped += 1
-                continue
+                if skip_missing:
+                    skipped += 1
+                    continue
+                raise FileNotFoundError(f"Missing: image={image_path} or caption={caption_path}")
 
             try:
                 image = Image.open(image_path)
@@ -147,33 +163,116 @@ def main():
                 if "\n" in txt:
                     txt = txt.splitlines()[0].strip()
 
-                key = stable_key(mask_path, image_path)
-                sink.write({"__key__": key, "png": image_to_png_bytes(concat_img), "txt": txt})
+                # numeric, deterministic, sorted-order key
+                key = str(idx).zfill(key_width)
 
-                # save inspection samples
-                if args.max_samples_to_save > 0:
-                    if args.random_sample_save:
-                        if len(pending) < args.max_samples_to_save * 5:
+                sink.write({"__key__": key, "png": image_to_png_bytes(concat_img), "txt": txt})
+                wrote += 1
+
+                # sample saving for sanity check: default = first N in sorted order
+                if max_samples_to_save > 0:
+                    if random_sample_save:
+                        if len(pending) < max_samples_to_save * 10:
                             pending.append((key, concat_img.copy(), txt))
                     else:
-                        if written < args.max_samples_to_save:
+                        if idx < max_samples_to_save:
                             concat_img.save(os.path.join(samples_dir, f"{key}.png"))
                             with open(os.path.join(samples_dir, f"{key}.txt"), "w", encoding="utf-8") as f:
                                 f.write(txt + "\n")
 
-                written += 1
             except Exception as e:
                 failed += 1
                 print(f"[error] {mask_path}: {e}")
 
-    if args.max_samples_to_save > 0 and args.random_sample_save and pending:
-        chosen = random.sample(pending, k=min(args.max_samples_to_save, len(pending)))
+    if max_samples_to_save > 0 and random_sample_save and pending:
+        chosen = random.sample(pending, k=min(max_samples_to_save, len(pending)))
         for key, img, txt in chosen:
             img.save(os.path.join(samples_dir, f"{key}.png"))
             with open(os.path.join(samples_dir, f"{key}.txt"), "w", encoding="utf-8") as f:
                 f.write(txt + "\n")
 
-    print(f"done: wrote={written} skipped={skipped} failed={failed}")
+    return {"wrote": wrote, "skipped": skipped, "failed": failed}
+
+
+# ----------------------------
+# Main
+# ----------------------------
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--root", required=True, help="Root folder containing many datasets (searched recursively)")
+    ap.add_argument("--split", required=True, choices=["train", "test", "both"])
+    ap.add_argument(
+        "--caption_dir",
+        required=True,
+        help='Caption folder name OR template, e.g. "train_simple_caption" or "{split}_simple_caption"',
+    )
+    ap.add_argument(
+        "--out_dir",
+        required=True,
+        help='Output directory name OR template, e.g. "wds_100_train" or "wds_100_{split}"',
+    )
+
+    ap.add_argument("--maxcount_per_shard", type=int, default=8000)
+    ap.add_argument("--max_total_samples", type=int, default=-1, help="-1 = no limit (per dataset)")
+    ap.add_argument("--max_samples_to_save", type=int, default=200, help="How many sanity-check samples to save (sorted order)")
+    ap.add_argument("--random_sample_save", action="store_true")
+
+    ap.add_argument("--skip_missing", action="store_true")
+    ap.add_argument(
+        "--image_stem_rule",
+        choices=["drop_last_underscore", "exact"],
+        default="drop_last_underscore",
+    )
+
+    ap.add_argument("--key_width", type=int, default=9, help="Digits in numeric __key__ (e.g. 000000123)")
+
+    args = ap.parse_args()
+
+    splits = ["train", "test"] if args.split == "both" else [args.split]
+
+    total_wrote = total_skipped = total_failed = 0
+    total_datasets = 0
+
+    for sp in splits:
+        caption_dir = apply_split_template(args.caption_dir, sp)
+        out_dir = apply_split_template(args.out_dir, sp)
+
+        ds_list = discover_datasets(args.root, caption_dir, sp)
+        if not ds_list:
+            print(f"[warn] No datasets found for split={sp} caption_dir={caption_dir} under: {args.root}")
+            continue
+
+        print(f"[split={sp}] found {len(ds_list)} dataset(s) | caption_dir={caption_dir} | out_dir={out_dir}")
+
+        for dataset_dir in ds_list:
+            total_datasets += 1
+            print(f"  -> {dataset_dir}")
+
+            stats = build_one_dataset(
+                dataset_dir,
+                sp,
+                caption_dir,
+                out_dir,
+                maxcount_per_shard=args.maxcount_per_shard,
+                max_total_samples=args.max_total_samples,
+                max_samples_to_save=args.max_samples_to_save,
+                random_sample_save=args.random_sample_save,
+                image_stem_rule=args.image_stem_rule,
+                skip_missing=args.skip_missing,
+                key_width=args.key_width,
+            )
+            total_wrote += stats["wrote"]
+            total_skipped += stats["skipped"]
+            total_failed += stats["failed"]
+
+            print(f"     wrote={stats['wrote']} skipped={stats['skipped']} failed={stats['failed']}")
+
+    print("\n[summary]")
+    print(f"  datasets_processed: {total_datasets}")
+    print(f"  total_wrote:   {total_wrote}")
+    print(f"  total_skipped: {total_skipped}")
+    print(f"  total_failed:  {total_failed}")
 
 
 if __name__ == "__main__":

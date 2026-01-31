@@ -2,17 +2,11 @@
 
 ## Build WebDataset for BiomedParse dataset
 ## --max_total_samples is for the number of samples to build the whole thing. -1 means use all samples.
-python /home/t-qimhuang/scripts/datasets/build_biomedparse_webdataset_improved.py \
-    --dataset_dir /home/t-qimhuang/disk/datasets/BiomedParseData \
-    --split train \
-    --caption_dir train_caption \
-    --out_dir wds_200_train \
-    --max_total_samples 200 
-
-
-python /home/t-qimhuang/scripts/datasets/build_biomedparse_webdataset_improved.py \
-    --dataset_dir /home/t-qimhuang/disk/datasets/BiomedParseData \
-    --split test \
-    --caption_dir test_caption \
-    --out_dir wds_200_test \
-    --max_total_samples 200 
+python build_biomedparse_webdataset_improved.py \
+  --root /home/t-qimhuang/disk/datasets/BiomedParseData \
+  --split both \
+  --caption_dir "{split}_caption" \
+  --out_dir "wds_full_{split}_full_caption" \
+  --max_total_samples -1 \
+  --max_samples_to_save 10 \
+  --skip_missing
