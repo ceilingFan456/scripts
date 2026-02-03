@@ -28,6 +28,8 @@ jobs:
     sla_tier: standard ## basic might be preempted by other jobs?
     identity: managed
     command:
+      - source ./secret.sh
+      - bash ./unpack_cuda.sh
       - echo "Job is up, sleeping for SSH..."
       - sleep infinity            # ← keeps job alive
     submit_args:

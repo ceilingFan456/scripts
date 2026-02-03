@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ## install show-o first
-export GITHUB_TOKEN=
+source secret.sh
 git clone https://$GITHUB_TOKEN@github.com/ceilingFan456/show-o-dev.git
 
 cd show-o-dev/
@@ -99,3 +99,9 @@ cd ..
 # print("cuda:", torch.cuda.is_available())
 # print("gpus:", torch.cuda.device_count())
 # PY
+
+## extracting the saved conda pack 
+# mkdir -p /tmp/eval
+# tar -xzf /mnt/default_storage/qiming/envs/eval_pack_ND96_H100_v5_cuda12.8_py310_v1.tar.gz \
+#     -C /tmp/eval
+# source /tmp/eval/bin/activate
