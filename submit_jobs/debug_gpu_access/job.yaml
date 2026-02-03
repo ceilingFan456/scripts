@@ -1,0 +1,39 @@
+description: debug-4xa100-interactive
+
+target:
+  service: sing
+  name: msrresrchbasicvc  ## msrresrchbasicvc ## msrresrchlab
+  workspace_name: shared_ws
+
+environment:
+  registry: singularitybase.azurecr.io
+  image: base/job/pytorch/acpt-2.2.1-py3.10-cuda12.1:20240312T225111416
+
+code:
+  local_dir: ./
+
+storage:
+  output:
+    storage_account_name: singaporeteamstorage
+    container_name: shared
+    mount_dir: /mnt/default_storage
+
+env_defaults:
+  USER: root
+
+jobs:
+  - name: shell
+    sku:  ND96_H100_v5    ## 32G8-V100-IB     
+    priority: high
+    sla_tier: standard ## basic might be preempted by other jobs?
+    identity: managed
+    command:
+      - echo "Job is up, sleeping for SSH..."
+      - sleep infinity            # ← keeps job alive
+    submit_args:
+      max_run_duration_seconds: 86400   # 86400 for 24h
+      env:
+        {
+          AMLT_BLOB_ROOT_DIR: /mnt/default_storage,
+          _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/SingaporeTeam/providers/Microsoft.ManagedIdentity/userAssignedIdentities/shared_mi",
+        }

@@ -1,0 +1,6 @@
+azstorage:
+  type: block # or block if you're using traditional blob
+  account-name: singaporeteamstorage
+  container: shared
+  endpoint: https://singaporeteamstorage.blob.core.windows.net
+  mode: azcli

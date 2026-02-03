@@ -1,0 +1,41 @@
+description: debug
+
+target:
+  service: sing
+  name: msrresrchlab # msrresrchvc, msroctovc
+  workspace_name: shared_ws
+
+environment:
+  registry: singularitybase.azurecr.io
+  image: base/job/pytorch/acpt-2.2.1-py3.10-cuda12.1:20240312T225111416
+
+code:
+  local_dir: ./
+
+storage:
+  output:
+    storage_account_name: singaporeteamstorage
+    container_name: shared
+    mount_dir: /mnt/default_storage
+    mount_options: []
+
+env_defaults:
+  USER: root
+
+jobs:
+  - name: test_run
+    sku: 32G1-V100
+    priority: high
+    sla_tier: premium
+    identity: managed
+    command:
+      - printenv
+      - pip install pandas
+      - python scripts/print_demo_data.py
+    submit_args:
+      max_run_duration_seconds: 1206400
+      env:
+        {
+          AMLT_BLOB_ROOT_DIR: /mnt/default_storage,
+          _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/SingaporeTeam/providers/Microsoft.ManagedIdentity/userAssignedIdentities/shared_mi",
+        }
