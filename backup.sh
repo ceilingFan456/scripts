@@ -15,6 +15,10 @@ sudo ./azcopy_linux_amd64_10.31.1/azcopy copy "/datadisk2/*" "https://singaporet
 
 ## steps for download the backup
 
+## install tmux
+sudo apt update
+sudo apt install tmux -y
+
 ## install AzCopy
 wget -O azcopy.tar.gz https://aka.ms/downloadazcopy-v10-linux && tar -xf azcopy.tar.gz
 # Find the folder name (it might be a newer version than your script)
