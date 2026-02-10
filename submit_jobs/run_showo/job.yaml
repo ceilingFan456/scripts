@@ -13,6 +13,10 @@ environment:
 #   registry: qiming.azurecr.io
 #   image: showo-eval:dev
 
+# environment:
+#   registry: 98ada19bea534cb0ab6e12b2d249e5fb.azurecr.io
+#   image: show-eval:dev
+
 code:
   local_dir: ./
 
@@ -24,6 +28,7 @@ storage:
 
 env_defaults:
   USER: root
+  AMLT_VULN_SCAN_MODE: "none"
 
 jobs:
   - name: shell
@@ -33,9 +38,9 @@ jobs:
     identity: managed
     command:
       - source ./secret.sh
-      # - bash ./unpack_cuda.sh
+      - bash setup_showo.sh
       - echo "Job is up, sleeping for SSH..."
-      - sleep infinity            # ← keeps job alive
+      # - sleep infinity            # ← keeps job alive
     submit_args:
       max_run_duration_seconds: 6000 ## 86400   # 86400 for 24h
       env:
