@@ -1,13 +1,17 @@
-description: debug-4xh100-interactive
+description: debug-4xa100-interactive
 
 target:
   service: sing
-  name: msrresrchbasicvc  ## msrresrchbasicvc ## msrresrchlab
+  name: msrresrchvc ## msrresrchbasicvc  ## msrresrchbasicvc ## msrresrchlab
   workspace_name: shared_ws
 
 environment:
   registry: singularitybase.azurecr.io
   image: base/job/pytorch/acpt-2.2.1-py3.10-cuda12.1:20240312T225111416
+
+# environment:
+#   registry: qiming.azurecr.io
+#   image: showo-eval:dev
 
 code:
   local_dir: ./
@@ -23,9 +27,9 @@ env_defaults:
 
 jobs:
   - name: shell
-    sku:  ND96_H100_v5    ## 32G8-V100-IB     
+    sku:  NC96ad_A100_v4 ## ND96_H100_v5    ## 32G8-V100-IB     
     priority: high
-    sla_tier: standard ## basic might be preempted by other jobs?
+    sla_tier: premium ## standard ## basic might be preempted by other jobs?
     identity: managed
     command:
       - source ./secret.sh
@@ -33,7 +37,7 @@ jobs:
       - echo "Job is up, sleeping for SSH..."
       - sleep infinity            # ← keeps job alive
     submit_args:
-      max_run_duration_seconds: 86400   # 86400 for 24h
+      max_run_duration_seconds: 6000 ## 86400   # 86400 for 24h
       env:
         {
           AMLT_BLOB_ROOT_DIR: /mnt/default_storage,
