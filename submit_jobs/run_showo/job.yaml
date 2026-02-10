@@ -1,4 +1,4 @@
-description: debug-4xa100-interactive
+description: debug-4xh100-interactive
 
 target:
   service: sing
@@ -29,7 +29,7 @@ jobs:
     identity: managed
     command:
       - source ./secret.sh
-      - bash ./unpack_cuda.sh
+      # - bash ./unpack_cuda.sh
       - echo "Job is up, sleeping for SSH..."
       - sleep infinity            # ← keeps job alive
     submit_args:
