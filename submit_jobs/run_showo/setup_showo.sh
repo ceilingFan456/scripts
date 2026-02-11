@@ -33,8 +33,8 @@ fi
 # Ensure conda commands work in this subshell
 source "$CONDA_DIR/etc/profile.d/conda.sh" || source "$(conda info --base)/etc/profile.d/conda.sh"
 
-conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
-conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+# conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+# conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
 
 # Create env if it doesn't exist
 if ! conda info --envs | grep -q "$ENV_NAME"; then
