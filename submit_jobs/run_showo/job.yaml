@@ -40,8 +40,17 @@ jobs:
       - source ./secret.sh
       - bash download_repo.sh
       # - bash setup_showo.sh
+      - cd /scratch/amlt_code/MedEValKit-dev
+      - pip install -e .
+      - cd /scratch/amlt_code/MedSAM
+      - pip install -e .
+      - cd /scratch/amlt_code/Show-o-dev
+      - pip install -e .
+      ## run the code
+      - cd /scratch/amlt_code/show-o-dev/show_o
+      - bash scripts/run.sh
       - echo "Job is up, sleeping for SSH..."
-      - sleep infinity            # ← keeps job alive
+      # - sleep infinity            # ← keeps job alive
     submit_args:
       max_run_duration_seconds: 36000 ## 86400   # 86400 for 24h
       env:
