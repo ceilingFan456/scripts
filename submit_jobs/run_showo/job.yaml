@@ -48,7 +48,7 @@ jobs:
       - pip install -e .
       ## run the code
       - cd /scratch/amlt_code/show-o-dev/show_o
-      - bash scripts/run.sh
+      - bash scripts/server_run.sh
       - echo "Job is up, sleeping for SSH..."
       # - sleep infinity            # ← keeps job alive
     submit_args:
