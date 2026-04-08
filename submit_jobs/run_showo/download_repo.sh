@@ -15,4 +15,4 @@ git clone https://$GITHUB_TOKEN@github.com/ceilingFan456/MedSAM.git
 # add-apt-repository universe
 # sudo apt install tmux -y
 
-pip uninstall uv
+# pip uninstall uv

@@ -1,4 +1,5 @@
 #!/bin/bash
+pwd
 
 export AMLT_VULN_SEVERITY_LEVEL=None
 export AMLT_VULN_SCAN_MODE=none

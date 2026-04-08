@@ -1,0 +1,40 @@
+description: test-qwen-gpu-med-agentic-vision
+
+target:
+  service: sing
+  name: msrresrchvc
+  workspace_name: shared_ws
+
+environment:
+  registry: 98ada19bea534cb0ab6e12b2d249e5fb.azurecr.io
+  image: med-agentic-vision:dev
+
+code:
+  local_dir: ./
+
+storage:
+  output:
+    storage_account_name: singaporeteamstorage
+    container_name: shared
+    mount_dir: /mnt/default_storage
+
+env_defaults:
+  USER: root
+  AMLT_VULN_SCAN_MODE: "none"
+
+jobs:
+  - name: test-qwen-gpu
+    sku: NC96ad_A100_v4
+    priority: high
+    sla_tier: premium
+    identity: managed
+    command:
+      - nvidia-smi
+      - python /scratch/amlt_code/test_qwen_gpu.py
+    submit_args:
+      max_run_duration_seconds: 3600
+      env:
+        {
+          AMLT_BLOB_ROOT_DIR: /mnt/default_storage,
+          _AZUREML_SINGULARITY_JOB_UAI: "/subscriptions/e033d461-1923-44a7-872b-78f1d35a86dd/resourcegroups/SingaporeTeam/providers/Microsoft.ManagedIdentity/userAssignedIdentities/shared_mi",
+        }

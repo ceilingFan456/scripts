@@ -6,11 +6,11 @@
 wget -O azcopy.tar.gz https://aka.ms/downloadazcopy-v10-linux && tar -xf azcopy.tar.gz
 
 ## backup home directory 
-sudo ./azcopy_linux_amd64_10.31.1/azcopy copy "/home/t-qimhuang/*" "https://singaporeteamstorage.blob.core.windows.net/shared/qiming/backup/backup_01_31_26/home_backup?<your-SAS-token>" --recursive --put-md5
+sudo ./azcopy_linux_amd64_10.32.0/azcopy copy "/home/t-qimhuang/*" "https://singaporeteamstorage.blob.core.windows.net/shared/qiming/backup/backup_04_08_26/home_backup?<your-SAS-token>" --recursive --put-md5
 ## back up disk1
-sudo ./azcopy_linux_amd64_10.31.1/azcopy copy "/datadisk/*" "https://singaporeteamstorage.blob.core.windows.net/shared/qiming/backup/backup_01_31_26/disk1_backup?<your-SAS-token>" --recursive --put-md5
+sudo ./azcopy_linux_amd64_10.32.0/azcopy copy "/datadisk/*" "https://singaporeteamstorage.blob.core.windows.net/shared/qiming/backup/backup_04_08_26/disk1_backup?<your-SAS-token>" --recursive --put-md5
 ## back up disk2
-sudo ./azcopy_linux_amd64_10.31.1/azcopy copy "/datadisk2/*" "https://singaporeteamstorage.blob.core.windows.net/shared/qiming/backup/backup_01_31_26/disk2_backup?<your-SAS-token>" --recursive --put-md5
+sudo ./azcopy_linux_amd64_10.32.0/azcopy copy "/datadisk2/*" "https://singaporeteamstorage.blob.core.windows.net/shared/qiming/backup/backup_04_08_26/disk2_backup?<your-SAS-token>" --recursive --put-md5
 
 
 ## steps for download the backup
@@ -36,3 +36,7 @@ wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 bash Miniconda3-latest-Linux-x86_64.sh -u -b -p /home/t-qimhuang/miniconda3
 ~/miniconda3/bin/conda init bash
 source ~/.bashrc
+
+
+## remove previous backups
+azcopy remove "https://singaporeteamstorage.blob.core.windows.net/shared/qiming/backup/backup_01_25_26/?<your-SAS-token>" --recursive=true

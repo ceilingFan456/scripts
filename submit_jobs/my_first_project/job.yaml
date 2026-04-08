@@ -2,7 +2,7 @@ description: debug
 
 target:
   service: sing
-  name: msrresrchlab # msrresrchvc, msroctovc
+  name: msrresrchvc # msrresrchlab # msrresrchvc, msroctovc
   workspace_name: shared_ws
 
 environment:
@@ -24,7 +24,7 @@ env_defaults:
 
 jobs:
   - name: test_run
-    sku: 32G1-V100
+    sku: 40G2-A100
     priority: high
     sla_tier: premium
     identity: managed
@@ -32,6 +32,7 @@ jobs:
       - printenv
       - pip install pandas
       - python scripts/print_demo_data.py
+      - sleep infinity
     submit_args:
       max_run_duration_seconds: 1206400
       env:
