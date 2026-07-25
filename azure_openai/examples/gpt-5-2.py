@@ -2,8 +2,8 @@ import os
 from openai import AzureOpenAI
 
 endpoint = "https://e0271-miptdstj-eastus2.cognitiveservices.azure.com/"
-model_name = "gpt-5.2"
-deployment = "gpt-5.2"
+model_name = "grok-4-1-fast-reasoning"
+deployment_name = "grok-4-1-fast-reasoning"
 
 # Never hardcode the key: export AZURE_OPENAI_API_KEY=... before running.
 subscription_key = os.environ["AZURE_OPENAI_API_KEY"]
@@ -26,8 +26,8 @@ response = client.chat.completions.create(
             "content": "I am going to Paris, what should I see?",
         }
     ],
-    max_completion_tokens=16384,
-    model=deployment
+    max_completion_tokens =12_000,
+    model=deployment_name
 )
 
 print(response.choices[0].message.content)

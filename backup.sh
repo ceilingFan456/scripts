@@ -25,11 +25,11 @@ wget -O azcopy.tar.gz https://aka.ms/downloadazcopy-v10-linux && tar -xf azcopy.
 AZDIR=$(ls -d azcopy_linux_amd64_*)
 
 ## redownload home directory
-./$AZDIR/azcopy copy "https://singaporeteamstorage.blob.core.windows.net/shared/qiming/backup/backup_01_31_26/home_backup/*?<your-SAS-token>" "/home/t-qimhuang/" --recursive
+./$AZDIR/azcopy copy "https://singaporeteamstorage.blob.core.windows.net/shared/qiming/backup/backup_04_08_26/home_backup/*?<your-SAS-token>" "/home/t-qimhuang/" --recursive
 ## redownload disk1
-./$AZDIR/azcopy copy "https://singaporeteamstorage.blob.core.windows.net/shared/qiming/backup/backup_01_31_26/disk1_backup/*?<your-SAS-token>" "/datadisk/" --recursive
+./$AZDIR/azcopy copy "https://singaporeteamstorage.blob.core.windows.net/shared/qiming/backup/backup_04_08_26/disk1_backup/*?<your-SAS-token>" "/datadisk/" --recursive
 ## redownload disk2
-./$AZDIR/azcopy copy "https://singaporeteamstorage.blob.core.windows.net/shared/qiming/backup/backup_01_31_26/disk2_backup/*?<your-SAS-token>" "/datadisk2/" --recursive
+./$AZDIR/azcopy copy "https://singaporeteamstorage.blob.core.windows.net/shared/qiming/backup/backup_04_08_26/disk2_backup/*?<your-SAS-token>" "/datadisk2/" --recursive
 
 ## update conda to make it work again 
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh

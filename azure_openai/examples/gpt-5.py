@@ -5,8 +5,7 @@ endpoint = "https://e0271-miptdstj-eastus2.cognitiveservices.azure.com/"
 model_name = "gpt-5.2"
 deployment = "gpt-5.2"
 
-# Never hardcode the key: export AZURE_OPENAI_API_KEY=... before running.
-subscription_key = os.environ["AZURE_OPENAI_API_KEY"]
+subscription_key = ""
 api_version = "2024-12-01-preview"
 
 client = AzureOpenAI(
